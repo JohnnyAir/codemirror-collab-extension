@@ -5,31 +5,43 @@ import {
   collab,
   getSyncedVersion,
 } from '@codemirror/collab';
-import { ChangeSet, Text } from '@codemirror/state';
+import { ChangeSet, Facet } from '@codemirror/state';
 import { EditorView, ViewPlugin, ViewUpdate } from '@codemirror/view';
-import { Socket } from 'socket.io-client';
 import { PeerConnection } from './peerConnection';
+import { debounce } from './utils';
 
-type DebouncedFunction<T extends (...args: any[]) => any> = (
-  ...args: Parameters<T>
-) => void;
+export type IPeerCollabConfig = {
+  clientID: string;
+  connection: PeerConnection;
+  color: string;
+  name: string;
+};
 
-function debounce<T extends (...args: any[]) => any>(
-  func: T,
-  delay: number
-): DebouncedFunction<T> {
-  let timeoutId: NodeJS.Timeout;
+export const peerCollabConfig = Facet.define<
+  IPeerCollabConfig,
+  IPeerCollabConfig
+>({
+  combine(value) {
+    return value[value.length - 1];
+  },
+});
 
-  return function (...args: Parameters<T>) {
-    clearTimeout(timeoutId);
+export const RecievedEvent = (() => {
+  let listeners: any[] = [];
 
-    timeoutId = setTimeout(() => {
-      func.apply(this, args);
-    }, delay);
+  return {
+    add: (event: () => void) => {
+      listeners.push(event);
+    },
+    emit: () => {
+      listeners.map((l) => l.call(null));
+    },
+    clear: () => {
+      console.log('clearing');
+      listeners.length = 0;
+    },
   };
-}
-
-
+})();
 
 const pushUpdates = (
   connection: PeerConnection,
@@ -61,95 +73,109 @@ const deserializeUpdates = (updates: Update[]) => {
   }));
 };
 
-export function peerExtension(
-  startVersion: number,
-  connection: PeerConnection
-) {
-  let plugin = ViewPlugin.fromClass(
-    class {
-      private pushing = false;
-      private pendingRecieved = [];
-      private disconnected = false;
+let plugin = ViewPlugin.fromClass(class {
+    private pushing = false;
+    private pendingRecieved = [];
+    private disconnected = false;
+    private connection: PeerConnection;
 
-      constructor(private view: EditorView) {
-        this.onConnected();
-        this.onRecieved();
-        this.onDisconnected();
-      }
+    constructor(private view: EditorView) {
+      this.connection = view.state.facet(peerCollabConfig).connection;
+      this.onConnected();
+      this.onRecieved();
+      this.onDisconnected();
+    }
 
-      onDisconnected() {
-        connection.connection.on('disconnect', () => {
-          this.disconnected = true;
-        });
-      }
+    onDisconnected() {
+      this.connection.connection.on('disconnect', () => {
+        this.disconnected = true;
+      });
+    }
 
-      onConnected() {
-        connection.onConnected(async () => {
-          if (this.disconnected) {
-            await this.getUpdates();
-            this.push();
-            this.disconnected = false;
-          }
-        });
-      }
-
-      onRecieved() {
-        connection.onUpdatesReceived((updates) => {
-          if (this.pushing || this.disconnected) {
-            this.pendingRecieved.push.apply(updates);
-          }
-          this.view.dispatch(
-            receiveUpdates(
-              this.view.state,
-              deserializeUpdates([...this.pendingRecieved, ...updates])
-            )
-          );
-        });
-      }
-
-      update(update: ViewUpdate) {
-        if (update.docChanged) this.push();
-      }
-
-      async push() {
-        let updates = sendableUpdates(this.view.state);
-        if (!updates.length || this.pushing || this.disconnected) return;
-        this.pushing = true;
-        let version = getSyncedVersion(this.view.state);
-        pushUpdates(connection, version, updates);
-        this.pushing = false;
-        this.applyPendingUpdates();
-        if (sendableUpdates(this.view.state).length) {
-          this.debouncedPush();
+    onConnected() {
+      this.connection.onConnected(async () => {
+        if (this.disconnected) {
+          await this._getUpdates();
+          this.disconnected = false;
+          this._pushUpdate();
         }
-      }
+      });
+    }
 
-      debouncedPush = debounce(this.push, 1500);
-
-      async getUpdates() {
-        let version = getSyncedVersion(this.view.state);
-        const updates = await pullUpdates(connection, version);
-        this.applyUpdates(updates);
-      }
-
-      applyUpdates(updates: Update[]) {
+    onRecieved() {
+      this.connection.onUpdatesReceived((updates) => {
+        if (this.pushing || this.disconnected) {
+          this.pendingRecieved.push.apply(updates);
+          return;
+        }
         this.view.dispatch(
-          receiveUpdates(this.view.state, deserializeUpdates(updates))
+          receiveUpdates(
+            this.view.state,
+            deserializeUpdates([...this.pendingRecieved, ...updates])
+          )
         );
-      }
+        RecievedEvent.emit();
+      });
+    }
 
-      applyPendingUpdates() {
-        if (this.pendingRecieved.length) {
-          this.applyUpdates(this.pendingRecieved);
-          this.pendingRecieved.length = 0;
-        }
-      }
-
-      destroy() {
-        console.log('destroying!!');
-        connection.disconnect();
+    update(update: ViewUpdate) {
+      if (update.docChanged) {
+        this._debouncedPushUpdate();
       }
     }
-  );
-  return [collab({ startVersion, clientID: connection.connection.id }), plugin];
+
+    private _debouncedPushUpdate = debounce(this._pushUpdate, 200);
+
+    private async _pushUpdate() {
+      let updates = sendableUpdates(this.view.state);
+      if (!updates.length || this.pushing || this.disconnected) return;
+      this.pushing = true;
+      let version = getSyncedVersion(this.view.state);
+      pushUpdates(this.connection, version, updates);
+      this.pushing = false;
+      this.applyPendingUpdates();
+      if (sendableUpdates(this.view.state).length) {
+        this._debouncedPushUpdate();
+      }
+    }
+
+    async _getUpdates() {
+      let version = getSyncedVersion(this.view.state);
+      const updates = await pullUpdates(this.connection, version);
+      this.applyUpdates(updates);
+    }
+
+    applyUpdates(updates: Update[]) {
+      this.view.dispatch(
+        receiveUpdates(this.view.state, deserializeUpdates(updates))
+      );
+      RecievedEvent.emit();
+    }
+
+    applyPendingUpdates() {
+      if (this.pendingRecieved.length) {
+        this.applyUpdates(this.pendingRecieved);
+        this.pendingRecieved.length = 0;
+      }
+    }
+
+    destroy() {
+      console.log('destroying!!');
+      this.connection.disconnect();
+    }
+  }
+);
+
+export function peerExtension(
+  startVersion: number,
+  connection: PeerConnection,
+  clientID: string,
+  name: string,
+  color: string
+) {
+  return [
+    collab({ startVersion, clientID }),
+    plugin,
+    peerCollabConfig.of({ connection, name, color, clientID }),
+  ];
 }
