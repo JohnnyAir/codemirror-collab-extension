@@ -7,14 +7,16 @@ import {
 } from '@codemirror/collab';
 import { ChangeSet, Facet } from '@codemirror/state';
 import { EditorView, ViewPlugin, ViewUpdate } from '@codemirror/view';
-import { PeerConnection } from './peerConnection';
+import { PeerConnection } from './peer-connection';
 import { debounce } from './utils';
 
 export type IPeerCollabConfig = {
   clientID: string;
   connection: PeerConnection;
-  color: string;
-  name: string;
+  user: { color: string; name: string };
+  colab: {
+    onVersionUpdate?: (version: number, hasUnconfirmedChanges: boolean) => void;
+  };
 };
 
 export const peerCollabConfig = Facet.define<
@@ -25,23 +27,6 @@ export const peerCollabConfig = Facet.define<
     return value[value.length - 1];
   },
 });
-
-export const RecievedEvent = (() => {
-  let listeners: any[] = [];
-
-  return {
-    add: (event: () => void) => {
-      listeners.push(event);
-    },
-    emit: () => {
-      listeners.map((l) => l.call(null));
-    },
-    clear: () => {
-      console.log('clearing');
-      listeners.length = 0;
-    },
-  };
-})();
 
 const pushUpdates = (
   connection: PeerConnection,
@@ -73,14 +58,17 @@ const deserializeUpdates = (updates: Update[]) => {
   }));
 };
 
-let plugin = ViewPlugin.fromClass(class {
+let plugin = ViewPlugin.fromClass(
+  class {
     private pushing = false;
     private pendingRecieved = [];
     private disconnected = false;
+    private conf: IPeerCollabConfig;
     private connection: PeerConnection;
 
     constructor(private view: EditorView) {
-      this.connection = view.state.facet(peerCollabConfig).connection;
+      this.conf = view.state.facet(peerCollabConfig);
+      this.connection = this.conf.connection;
       this.onConnected();
       this.onRecieved();
       this.onDisconnected();
@@ -114,7 +102,7 @@ let plugin = ViewPlugin.fromClass(class {
             deserializeUpdates([...this.pendingRecieved, ...updates])
           )
         );
-        RecievedEvent.emit();
+        this.notifyVersionUpdate();
       });
     }
 
@@ -149,7 +137,7 @@ let plugin = ViewPlugin.fromClass(class {
       this.view.dispatch(
         receiveUpdates(this.view.state, deserializeUpdates(updates))
       );
-      RecievedEvent.emit();
+      this.notifyVersionUpdate();
     }
 
     applyPendingUpdates() {
@@ -157,6 +145,13 @@ let plugin = ViewPlugin.fromClass(class {
         this.applyUpdates(this.pendingRecieved);
         this.pendingRecieved.length = 0;
       }
+    }
+
+    notifyVersionUpdate() {
+      this.conf.colab.onVersionUpdate?.(
+        getSyncedVersion(this.view.state),
+        sendableUpdates(this.view.state).length > 0
+      );
     }
 
     destroy() {
@@ -176,6 +171,11 @@ export function peerExtension(
   return [
     collab({ startVersion, clientID }),
     plugin,
-    peerCollabConfig.of({ connection, name, color, clientID }),
+    peerCollabConfig.of({
+      connection,
+      colab: {},
+      user: { name, color },
+      clientID,
+    }),
   ];
 }

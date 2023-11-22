@@ -43,11 +43,11 @@ export class PeerConnection {
     this.connection.on('updatesRecieved', handler);
   }
 
-  onPushSelections(data: any) {
+  onBroadcastLocalSelection(data: any) {
     this.connection.emit('pushSelection', data);
   }
 
-  onSelections(handler: (data: any) => void) {
+  onRecieveSelection(handler: (data: any) => void) {
     this.connection.on('peer-selection', handler);
   }
 
