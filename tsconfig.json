@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
-    "target": "es6",
+    "target": "es5",
+    "lib": ["dom", "esnext"],
     "module": "es2020",
     "strict": true,
     "declaration": true,

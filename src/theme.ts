@@ -1,4 +1,4 @@
-import { EditorView } from '@codemirror/view';
+import { EditorView } from '@codemirror/view'
 
 export const baseSelectionStyles = EditorView.theme({
   '.cm-peer-user-cursor': {
@@ -14,7 +14,7 @@ export const baseSelectionStyles = EditorView.theme({
   },
   '.cm-peer-user-cursor-line::after': {
     content: '""',
-    background: 'yellow',
+    backgroundColor: 'inherit',
     width: '0.25em',
     display: 'block',
     height: '0.2em',
@@ -40,19 +40,17 @@ export const baseSelectionStyles = EditorView.theme({
     zIndex: 101,
     borderRadius: '4px',
     borderBottomLeftRadius: '0px',
-    transition: 'opacity 3s ease-in-out',
+    transition: 'opacity 1.5s ease-in-out',
     backgroundColor: 'yellow',
     whiteSpace: 'nowrap',
+    opacity: 0,
+    transitionDelay: '0s',
   },
-});
-
-export const aplha = (hexColor: string, alpha: number) => {
-  alpha = Math.max(0, Math.min(1, alpha));
-  hexColor = hexColor.replace(/^#/, '');
-  const bigint = parseInt(hexColor, 16);
-  const red = (bigint >> 16) & 255;
-  const green = (bigint >> 8) & 255;
-  const blue = bigint & 255;
-  const rgbaColor = `rgba(${red}, ${green}, ${blue}, ${alpha})`;
-  return rgbaColor;
-};
+  '.cm-peer-user-cursor-info.show-info': {
+    opacity: 1,
+  },
+  '.cm-peer-user-cursor:hover .cm-peer-user-cursor-info': {
+    transition: 'opacity 1s ease-in',
+    opacity: 1,
+  },
+})
