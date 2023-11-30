@@ -15,7 +15,7 @@ export type IPeerCollabConfig = {
 
 export const peerCollabConfig = Facet.define<IPeerCollabConfig, IPeerCollabConfig>({
   combine(value) {
-    return value[value.length - 1]
+    return value[value.length - 1] //fix typing here.
   },
 })
 

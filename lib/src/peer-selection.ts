@@ -38,7 +38,7 @@ class PeerSelectionPlugin {
 
   _brodcastUserSelection(update: ViewUpdate) {
     if (update.selectionSet && update.transactions.length) {
-      const tr = update.transactions[0]
+      //const tr = update.transactions[0]
       //TODO: don't send when pushing or disconneted.
       //Use facet to hold these values?
       if (!sendableUpdates(update.view.state).length) {

@@ -3,7 +3,7 @@
 ### WIP
 
 ```bash
-npm run dev
+yarn build
 ```
 
 More Details to follow.

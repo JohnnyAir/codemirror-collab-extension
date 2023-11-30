@@ -34,7 +34,7 @@ export class PeerConnection {
   }
 
   pushUpdates<T>(updates: T) {
-    return this.connection.emit('updateDocument', updates)
+    return this.connection.emit('updateDocument', updates) as any
   }
 
   onUpdatesReceived(handler: (updates: Update[]) => void) {

@@ -1,0 +1,36 @@
+{
+  "name": "@joncodes/codemirror-collab-extension",
+  "version": "1.0.0",
+  "description": "Real-time collaboration plugin for CodeMirror 6.",
+  "author": "John Ekunola",
+  "license": "MIT",
+  "type": "module",
+  "types": "dist/index.d.ts",
+  "main": "dist/index.cjs",
+  "module": "dist/index.js",
+  "sideEffects": false,
+  "scripts": {
+    "build": "rm -rf ./dist && tsup",
+    "dev": "tsup --watch",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "codemirror",
+    "codemirror 6",
+    "collaboration",
+    "remote selection"
+  ],
+  "dependencies": {
+    "@codemirror/collab": "^6.1.1",
+    "@codemirror/state": "^6.3.1",
+    "@codemirror/view": "^6.22.0"
+  },
+  "devDependencies": {
+    "socket.io-client": "^4.7.2",
+    "tsup": "^8.0.1"
+  },
+  "files": [
+    "README.md",
+    "dist"
+  ]
+}
