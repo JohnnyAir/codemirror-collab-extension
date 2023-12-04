@@ -1,0 +1,10 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "useDefineForClassFields": true,
+    "module": "ESNext",
+    "allowImportingTsExtensions": true,
+    "isolatedModules": true,
+  },
+  "include": ["src", "server"]
+}

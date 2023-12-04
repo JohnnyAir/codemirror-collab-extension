@@ -15,7 +15,7 @@ export type IPeerCollabConfig = {
 
 export const peerCollabConfig = Facet.define<IPeerCollabConfig, IPeerCollabConfig>({
   combine(value) {
-    return value[value.length - 1] //fix typing here.
+    return value[value.length - 1]! //fix typing here.
   },
 })
 
@@ -58,7 +58,7 @@ class PeerExtensionPlugin {
   }
 
   onDisconnected() {
-    this.connection.connection.on('disconnect', () => {
+    this.connection.socket.on('disconnect', () => {
       this.disconnected = true
     })
   }

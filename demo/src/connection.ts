@@ -12,13 +12,6 @@ export class PeerConnection {
 
   constructor() {
     this.socket = createConnection()
-    // this.connection.onAny((event, ...args) => {
-    //   console.log(`in event:: ${event} =>`, ...args);
-    // });
-
-    // this.connection.onAnyOutgoing((event, ...args) => {
-    //   console.log(`out event:: ${event} =>`, ...args);
-    // });
   }
 
   connect() {
@@ -27,6 +20,10 @@ export class PeerConnection {
 
   onConnected(handler: () => void) {
     this.socket.on('connect', handler)
+  }
+
+  onDisconnected(handler: () => void) {
+    this.socket.on('disconnect', handler)
   }
 
   pullUpdates(version: number) {

@@ -1,0 +1,43 @@
+{
+  "name": "demo",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev:client": "vite",
+    "dev:server": "tsup --watch --onSuccess \"node dist/server/index.js\"",
+    "dev": "conc -n client,server -c yellow,magenta  \"pnpm dev:client\" \"pnpm dev:server\"",
+    "build:client": "tsc && vite build",
+    "build:server": "tsup",
+    "build": "build:client && tsup",
+    "preview": "vite preview"
+  },
+  "tsup": {
+    "entry": [
+      "server/index.ts"
+    ],
+    "outDir": "dist/server",
+    "format": "esm",
+    "splitting": false,
+    "clean": true
+  },
+  "dependencies": {
+    "@codemirror/collab": "^6.1.1",
+    "@codemirror/lang-javascript": "^6.2.1",
+    "@codemirror/state": "^6.3.1",
+    "@codemirror/view": "^6.22.0",
+    "@joncodes/codemirror-collab-extension": "^1.0.0",
+    "code-mirror-night-owl": "^1.0.0",
+    "codemirror": "^6.0.1",
+    "socket.io": "^4.7.2",
+    "socket.io-client": "^4.7.2",
+    "tinycolor2": "^1.6.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.1",
+    "@types/tinycolor2": "^1.4.6",
+    "concurrently": "^8.2.2",
+    "typescript": "^5.2.2",
+    "vite": "^5.0.0"
+  }
+}
