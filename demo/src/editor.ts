@@ -1,18 +1,21 @@
 import { basicSetup } from 'codemirror'
 import { EditorState, Text } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
-import { PeerConnection } from './connection'
+import { createPeerConnection } from './connection'
 import { javascript } from '@codemirror/lang-javascript'
 import { peerExtension, peerSelection } from '@joncodes/codemirror-collab-extension'
 import { nightOwl } from 'code-mirror-night-owl'
 import tinycolor from 'tinycolor2'
 
-const connection = new PeerConnection()
+const generateClientID = () => Math.floor(Math.random() * 1e9).toString(36)
+
+const clientID = generateClientID()
+const connection = createPeerConnection(clientID)
 
 connection.onConnected(() => notifyEditorConnectionState('connected'))
 connection.onDisconnected(() => notifyEditorConnectionState('disconnected'))
 
-const generateClientID = () => Math.floor(Math.random() * 1e9).toString(36)
+
 
 const getDocument = async (): Promise<{ version: number; doc: Text } | null> => {
   try {
@@ -48,7 +51,7 @@ export const loadEditor = async (parent: Element) => {
   const editorDocument = await getDocument()
   if (!editorDocument) return
   const { version, doc } = editorDocument
-  const clientID = generateClientID()
+  
   const color = tinycolor.random().toHex()
 
   const state = EditorState.create({
@@ -103,7 +106,7 @@ const connectionToggleHandler = (event: Event) => {
   const btn = event.target as HTMLElement
 
   if (connection.socket.connected) {
-    connection.disconnect()
+    connection.socket.disconnect()
     btn.textContent = 'Reconnect'
   } else {
     connection.connect()

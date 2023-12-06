@@ -11,7 +11,7 @@ const io = new Server(httpServer, {
 const documentService = new DocumentService()
 
 io.on('connection', (socket: Socket) => {
-  console.log('A user connected')
+  console.log('A user connected', socket.handshake.auth)
 
   socket.on('getDocument', (callback) => {
     callback(documentService.getDoc())
@@ -27,15 +27,12 @@ io.on('connection', (socket: Socket) => {
     return json
   })
 
-  socket.on('pushSelection', (selections: any) => {
-    return socket.broadcast.emit('peer-selection', selections)
+  socket.on('pushSelection', (clientId: string, selections: any) => {
+    return socket.broadcast.emit('peer-selection', clientId, selections)
   })
 
   socket.on('disconnect', () => {
-    socket.broadcast.emit('peer-selection', {
-      id: socket.id,
-      disconnected: true,
-    })
+    socket.broadcast.emit('peer-selection', socket.handshake.auth.clientID, null)
   })
 })
 

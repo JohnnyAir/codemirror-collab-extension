@@ -1,11 +1,10 @@
 import { Decoration, DecorationSet, EditorView, ViewPlugin, ViewUpdate } from '@codemirror/view'
-import { PeerConnection } from './peer-connection'
 import { EditorSelection, Range, Extension } from '@codemirror/state'
 import { baseSelectionStyles } from './theme'
 import { getSyncedVersion, sendableUpdates } from '@codemirror/collab'
 import { IPeerCollabConfig, peerCollabConfig } from './collab'
 import { PeerCursorWidget, createCursorDecoration } from './cursor'
-import { PeerSelectionRange } from './types'
+import { IPeerConnection, PeerSelectionRange } from './types'
 import { PeerSelectionState, peerSelectionField, peerSelectionsAnnotation } from './peer-selection-state'
 
 class PeerSelectionPlugin {
@@ -13,7 +12,7 @@ class PeerSelectionPlugin {
   peerSelectionState: Readonly<PeerSelectionState>
   localSelection: EditorSelection | null
   config: IPeerCollabConfig
-  connection: PeerConnection
+  connection: IPeerConnection
 
   constructor(public view: EditorView) {
     this.decorations = Decoration.none
@@ -33,7 +32,7 @@ class PeerSelectionPlugin {
     this.peerSelectionState = this.view.state.field(peerSelectionField)
     this._brodcastUserSelection(update)
     this._computeSelectionsDecorations(update)
-    this._hideCursorsInfo()
+    this._hideCursorsTooltip()
   }
 
   _brodcastUserSelection(update: ViewUpdate) {
@@ -50,8 +49,7 @@ class PeerSelectionPlugin {
   _broadcastSelection() {
     this.localSelection = this.view.state.selection
     const selection = this.localSelection.toJSON()
-    this.connection.onBroadcastLocalSelection({
-      clientID: this.config.clientID,
+    this.connection.onBroadcastLocalSelection(this.config.clientID, {
       version: getSyncedVersion(this.view.state),
       user: this.config.user,
       selection,
@@ -59,9 +57,9 @@ class PeerSelectionPlugin {
   }
 
   _subscribeToPeersEditorSelections() {
-    this.connection.onRecieveSelection((peerSelectionJson) => {
+    this.connection.onReceiveSelection((clientID, peerSelectionJson) => {
       this.view.dispatch({
-        annotations: [peerSelectionsAnnotation.of(peerSelectionJson)],
+        annotations: [peerSelectionsAnnotation.of([clientID, peerSelectionJson])],
       })
     })
   }
@@ -119,9 +117,9 @@ class PeerSelectionPlugin {
     return decorations
   }
 
-  _hideCursorsInfo() {
+  _hideCursorsTooltip() {
     setTimeout(() => {
-      PeerCursorWidget.hideCursorsInfo(this.view)
+      PeerCursorWidget.hideCursorsTooltip(this.view)
     }, 1000)
   }
 

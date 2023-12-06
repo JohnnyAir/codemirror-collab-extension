@@ -1,12 +1,12 @@
 import { Update, receiveUpdates, sendableUpdates, collab, getSyncedVersion } from '@codemirror/collab'
 import { ChangeSet, Facet } from '@codemirror/state'
 import { EditorView, ViewPlugin, ViewUpdate } from '@codemirror/view'
-import { PeerConnection } from './peer-connection'
 import { debounce } from './utils'
+import { IPeerConnection } from './types'
 
 export type IPeerCollabConfig = {
   clientID: string
-  connection: PeerConnection
+  connection: IPeerConnection
   user: { color: string; name: string }
   colab: {
     onVersionUpdate?: (version: number, hasUnconfirmedChanges: boolean) => void
@@ -19,15 +19,15 @@ export const peerCollabConfig = Facet.define<IPeerCollabConfig, IPeerCollabConfi
   },
 })
 
-const pushUpdates = (connection: PeerConnection, version: number, updates: readonly Update[]) => {
+const pushUpdates = (connection: IPeerConnection, version: number, updates: readonly Update[]) => {
   let updatesJSON = updates.map((u) => ({
     clientID: u.clientID,
     changes: u.changes.toJSON(),
   }))
-  return connection.pushUpdates({ version, updates: updatesJSON })
+  return connection.pushUpdates(version, updatesJSON)
 }
 
-const pullUpdates = async (connection: PeerConnection, currentVersion: number) => {
+const pullUpdates = async (connection: IPeerConnection, currentVersion: number) => {
   try {
     return await connection.pullUpdates(currentVersion)
   } catch (error) {
@@ -47,7 +47,7 @@ class PeerExtensionPlugin {
   private pendingRecieved = []
   private disconnected = false
   private conf: IPeerCollabConfig
-  private connection: PeerConnection
+  private connection: IPeerConnection
 
   constructor(private view: EditorView) {
     this.conf = view.state.facet(peerCollabConfig)
@@ -58,7 +58,7 @@ class PeerExtensionPlugin {
   }
 
   onDisconnected() {
-    this.connection.socket.on('disconnect', () => {
+    this.connection.onDisconnected(() => {
       this.disconnected = true
     })
   }
@@ -105,6 +105,7 @@ class PeerExtensionPlugin {
     }
   }
 
+  //TODO: Error handling
   async _getUpdates() {
     let version = getSyncedVersion(this.view.state)
     const updates = await pullUpdates(this.connection, version)
@@ -128,14 +129,13 @@ class PeerExtensionPlugin {
   }
 
   destroy() {
-    console.log('destroying!!')
-    this.connection.disconnect()
+    this.connection.destroy()
   }
 }
 
 export function peerExtension(
   startVersion: number,
-  connection: PeerConnection,
+  connection: IPeerConnection,
   clientID: string,
   name: string,
   color: string

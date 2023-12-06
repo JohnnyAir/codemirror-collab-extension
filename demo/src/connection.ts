@@ -1,54 +1,56 @@
 import { Socket, io } from 'socket.io-client'
+import { IPeerConnection } from '@joncodes/codemirror-collab-extension'
 import { Update } from '@codemirror/collab'
 
-const createConnection = () => {
+export const createPeerConnection = (clientID: string): IPeerConnection & { socket: Socket; connect: () => void } => {
   const url = 'http://localhost:4000'
-  return io(url)
-}
 
-//socket.io PeerConnection
-export class PeerConnection {
-  public socket: Socket
+  const socket = io(url, {
+    transports: ['websocket'],
+    auth: {
+      clientID,
+    },
+  })
 
-  constructor() {
-    this.socket = createConnection()
-  }
+  return {
+    socket,
 
-  connect() {
-    this.socket.connect()
-  }
+    connect() {
+      socket.connect()
+    },
 
-  onConnected(handler: () => void) {
-    this.socket.on('connect', handler)
-  }
+    onConnected(handler: () => void) {
+      socket.on('connect', handler)
+    },
 
-  onDisconnected(handler: () => void) {
-    this.socket.on('disconnect', handler)
-  }
+    onDisconnected(handler: () => void) {
+      socket.on('disconnect', handler)
+    },
 
-  pullUpdates(version: number) {
-    return this.socket.timeout(3000).emitWithAck('pullDocumentUpdates', version)
-  }
+    pullUpdates(version) {
+      return socket.timeout(3000).emitWithAck('pullDocumentUpdates', version) as Promise<Update[]>
+    },
 
-  pushUpdates<T>(updates: T) {
-    return this.socket.emit('updateDocument', updates) as any
-  }
+    pushUpdates(version, updates) {
+      socket.emit('updateDocument', { version, updates })
+    },
 
-  onUpdatesReceived(handler: (updates: Update[]) => void) {
-    this.socket.on('updatesRecieved', handler)
-  }
+    onUpdatesReceived(handler) {
+      socket.on('updatesRecieved', handler)
+    },
 
-  onBroadcastLocalSelection(data: any) {
-    this.socket.emit('pushSelection', data)
-  }
+    onBroadcastLocalSelection(clientId, selection) {
+      socket.emit('pushSelection', clientId, selection)
+    },
 
-  onRecieveSelection(handler: (data: any) => void) {
-    this.socket.on('peer-selection', handler)
-  }
+    onReceiveSelection(handler) {
+      socket.on('peer-selection', handler)
+    },
 
-  disconnect() {
-    this.socket.offAny()
-    this.socket.offAnyOutgoing()
-    this.socket.close()
+    destroy() {
+      socket.offAny()
+      socket.offAnyOutgoing()
+      socket.close()
+    },
   }
 }

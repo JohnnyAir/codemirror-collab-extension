@@ -66,7 +66,7 @@ export class PeerSelectionState {
   }
 }
 
-export const peerSelectionsAnnotation = Annotation.define<PeerEditorSelectionJSON>()
+export const peerSelectionsAnnotation = Annotation.define<[clientID: string, PeerEditorSelectionJSON | null]>()
 
 export const peerSelectionField = StateField.define<Readonly<PeerSelectionState>>({
   create() {
@@ -80,13 +80,15 @@ export const peerSelectionField = StateField.define<Readonly<PeerSelectionState>
 
     //TODO: optimistic cursor position update for remote changes
     if (!selectionUpdate) return mappedSelectionState
-    if (!selectionUpdate.selection) {
-      mappedSelectionState.remove(selectionUpdate.clientID)
+    const [clientID, selectionJson] = selectionUpdate
+    if (!selectionJson) {
+      mappedSelectionState.remove(clientID)
     } else {
       mappedSelectionState.addOrUpdate(
         {
-          ...selectionUpdate,
-          selection: EditorSelection.fromJSON(selectionUpdate.selection),
+          clientID,
+          ...selectionJson,
+          selection: EditorSelection.fromJSON(selectionJson.selection),
         },
         tr
       )

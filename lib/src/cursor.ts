@@ -26,7 +26,7 @@ export class PeerCursorWidget extends WidgetType {
     return wrap
   }
 
-  static hideCursorsInfo(view: EditorView) {
+  static hideCursorsTooltip(view: EditorView) {
     view.contentDOM.querySelectorAll('.cm-peer-user-cursor-info').forEach((e) => e.classList.remove('show-info'))
   }
 }
