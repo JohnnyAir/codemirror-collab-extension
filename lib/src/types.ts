@@ -51,7 +51,7 @@ export interface IPeerConnection {
   /**
    * Pushes unconfirmed local updates to the authority to be applied and shared with other peers.
    * @param version - current synchronized version.
-   * @param localUpdates - The array of unconfirmed updates to be pushed.
+   * @param unconfirmedUpdates - The array of unconfirmed updates to be pushed.
    */
   pushUpdates: (version: number, unconfirmedUpdates: Update[]) => void
 
@@ -79,4 +79,16 @@ export interface IPeerConnection {
    * Performs cleanup operations.
    */
   destroy: () => void
+}
+
+export type SelectionConfig = {
+  name: string
+  color: string
+  bgColor: string
+}
+
+export type PeerColabConfig = {
+  clientID: string
+  docStartVersion: number
+  selection: SelectionConfig
 }

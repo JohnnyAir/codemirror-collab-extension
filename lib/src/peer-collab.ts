@@ -2,12 +2,10 @@ import { Update, receiveUpdates, sendableUpdates, collab, getSyncedVersion } fro
 import { ChangeSet, Facet } from '@codemirror/state'
 import { EditorView, ViewPlugin, ViewUpdate } from '@codemirror/view'
 import { debounce } from './utils'
-import { IPeerConnection } from './types'
+import { IPeerConnection, PeerColabConfig } from './types'
 
-export type IPeerCollabConfig = {
-  clientID: string
+export type IPeerCollabConfig = PeerColabConfig & {
   connection: IPeerConnection
-  user: { color: string; name: string }
   colab: {
     onVersionUpdate?: (version: number, hasUnconfirmedChanges: boolean) => void
   }
@@ -109,6 +107,7 @@ class PeerExtensionPlugin {
   async _getUpdates() {
     let version = getSyncedVersion(this.view.state)
     const updates = await pullUpdates(this.connection, version)
+    console.log('pullied updates', updates)
     this.applyUpdates(updates)
   }
 
@@ -133,21 +132,6 @@ class PeerExtensionPlugin {
   }
 }
 
-export function peerExtension(
-  startVersion: number,
-  connection: IPeerConnection,
-  clientID: string,
-  name: string,
-  color: string
-) {
-  return [
-    collab({ startVersion, clientID }),
-    ViewPlugin.fromClass(PeerExtensionPlugin),
-    peerCollabConfig.of({
-      connection,
-      colab: {},
-      user: { name, color },
-      clientID,
-    }),
-  ]
+export function peerExtension(clientID: string, startVersion: number) {
+  return [collab({ startVersion, clientID }), ViewPlugin.fromClass(PeerExtensionPlugin)]
 }

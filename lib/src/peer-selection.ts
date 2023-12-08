@@ -2,7 +2,7 @@ import { Decoration, DecorationSet, EditorView, ViewPlugin, ViewUpdate } from '@
 import { EditorSelection, Range, Extension } from '@codemirror/state'
 import { baseSelectionStyles } from './theme'
 import { getSyncedVersion, sendableUpdates } from '@codemirror/collab'
-import { IPeerCollabConfig, peerCollabConfig } from './collab'
+import { IPeerCollabConfig, peerCollabConfig } from './peer-collab'
 import { PeerCursorWidget, createCursorDecoration } from './cursor'
 import { IPeerConnection, PeerSelectionRange } from './types'
 import { PeerSelectionState, peerSelectionField, peerSelectionsAnnotation } from './peer-selection-state'
@@ -51,7 +51,7 @@ class PeerSelectionPlugin {
     const selection = this.localSelection.toJSON()
     this.connection.onBroadcastLocalSelection(this.config.clientID, {
       version: getSyncedVersion(this.view.state),
-      user: this.config.user,
+      user: this.config.selection,
       selection,
     })
   }

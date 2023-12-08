@@ -3,7 +3,7 @@ import { EditorState, Text } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { createPeerConnection } from './connection'
 import { javascript } from '@codemirror/lang-javascript'
-import { peerExtension, peerSelection } from '@joncodes/codemirror-collab-extension'
+import { peerCollab } from '@joncodes/codemirror-collab-extension'
 import { nightOwl } from 'code-mirror-night-owl'
 import tinycolor from 'tinycolor2'
 
@@ -14,8 +14,6 @@ const connection = createPeerConnection(clientID)
 
 connection.onConnected(() => notifyEditorConnectionState('connected'))
 connection.onDisconnected(() => notifyEditorConnectionState('disconnected'))
-
-
 
 const getDocument = async (): Promise<{ version: number; doc: Text } | null> => {
   try {
@@ -51,7 +49,7 @@ export const loadEditor = async (parent: Element) => {
   const editorDocument = await getDocument()
   if (!editorDocument) return
   const { version, doc } = editorDocument
-  
+
   const color = tinycolor.random().toHex()
 
   const state = EditorState.create({
@@ -62,8 +60,15 @@ export const loadEditor = async (parent: Element) => {
       disableSpellCheck,
       nightOwl,
       javascript({ typescript: true }),
-      peerSelection,
-      peerExtension(version, connection, clientID, 'Anon:' + clientID, `#${color}`),
+      peerCollab(connection, {
+        clientID,
+        docStartVersion: version,
+        selection: {
+          name: 'Anon:' + clientID,
+          color: `#${color}`,
+          bgColor: `#${color}`,
+        },
+      }),
     ],
   })
 
