@@ -17,8 +17,9 @@ io.on('connection', (socket: Socket) => {
     callback(documentService.getDoc())
   })
 
-  socket.on('pullDocumentUpdates', (version: any) => {
-    return documentService.getUpdates(version)
+  socket.on('pullDocumentUpdates', (version: number, ...args) => {
+    const cb = args[args.length - 1]
+    cb(documentService.getUpdates(version))
   })
 
   socket.on('updateDocument', (updateDocumentDto: any) => {
