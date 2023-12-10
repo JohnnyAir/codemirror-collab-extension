@@ -1,49 +1,46 @@
 import { Update, receiveUpdates, sendableUpdates, collab, getSyncedVersion } from '@codemirror/collab'
-import { ChangeSet, Facet } from '@codemirror/state'
+import { ChangeSet, Facet, Annotation } from '@codemirror/state'
 import { EditorView, ViewPlugin, ViewUpdate } from '@codemirror/view'
 import { debounce } from './utils'
 import { IPeerConnection, PeerColabConfig } from './types'
 
 export type IPeerCollabConfig = PeerColabConfig & {
   connection: IPeerConnection
-  colab: {
-    onVersionUpdate?: (version: number, hasUnconfirmedChanges: boolean) => void
-  }
 }
 
 export const peerCollabConfig = Facet.define<IPeerCollabConfig, IPeerCollabConfig>({
   combine(value) {
-    return value[value.length - 1]! //fix typing here.
+    return value[value.length - 1]!
   },
 })
 
-const pushUpdates = (connection: IPeerConnection, version: number, updates: readonly Update[]) => {
-  let updatesJSON = updates.map((u) => ({
+const serializeUpdates = (updates: readonly Update[]): Update[] => {
+  return updates.map((u) => ({
     clientID: u.clientID,
     changes: u.changes.toJSON(),
+    effects: u.effects,
   }))
-  return connection.pushUpdates(version, updatesJSON)
 }
 
-const pullUpdates = async (connection: IPeerConnection, currentVersion: number) => {
-  try {
-    return await connection.pullUpdates(currentVersion)
-  } catch (error) {
-    return []
-  }
-}
-
-const deserializeUpdates = (updates: Update[]) => {
+const deserializeUpdates = (updates: Update[]): Update[] => {
   return updates.map((u: any) => ({
     ...u,
     changes: ChangeSet.fromJSON(u.changes),
   }))
 }
 
+export const remoteUpdateRecieved = Annotation.define<{}>()
+
+enum CollabState {
+  Idle = 'idle',
+  Pushing = 'pushing',
+  Pulling = 'pulling',
+  Disconnected = 'disconnected',
+}
+
 class PeerExtensionPlugin {
-  private pushing = false
+  private pState: CollabState = CollabState.Idle
   private pendingRecieved = []
-  private disconnected = false
   private conf: IPeerCollabConfig
   private connection: IPeerConnection
 
@@ -55,30 +52,33 @@ class PeerExtensionPlugin {
     this.onDisconnected()
   }
 
-  onDisconnected() {
+  private changeState(newState: CollabState) {
+    this.pState = newState
+  }
+
+  private onDisconnected() {
     this.connection.onDisconnected(() => {
-      this.disconnected = true
+      this.changeState(CollabState.Disconnected)
     })
   }
 
-  onConnected() {
+  private onConnected() {
     this.connection.onConnected(async () => {
-      if (this.disconnected) {
+      if (this.pState === CollabState.Disconnected) {
         await this._getUpdates()
-        this.disconnected = false
+        this.changeState(CollabState.Idle)
         this._pushUpdate()
       }
     })
   }
 
-  onRecieved() {
+  private onRecieved() {
     this.connection.onUpdatesReceived((updates) => {
-      if (this.pushing || this.disconnected) {
+      if (this.pState !== CollabState.Idle) {
         this.pendingRecieved.push.apply(updates)
         return
       }
-      this.view.dispatch(receiveUpdates(this.view.state, deserializeUpdates([...this.pendingRecieved, ...updates])))
-      this.notifyVersionUpdate()
+      this.applyUpdates([...this.pendingRecieved, ...updates])
     })
   }
 
@@ -88,15 +88,20 @@ class PeerExtensionPlugin {
     }
   }
 
-  private _debouncedPushUpdate = debounce(this._pushUpdate, 200)
+  private get _debouncedPushUpdate() {
+    const func = debounce(() => this._pushUpdate(), this.conf.pushUpdateDelay)
+    Object.defineProperty(this, '_debouncedPushUpdate', { value: func, writable: false })
+    return func
+  }
 
   private async _pushUpdate() {
     let updates = sendableUpdates(this.view.state)
-    if (!updates.length || this.pushing || this.disconnected) return
-    this.pushing = true
+    if (!updates.length || this.pState !== CollabState.Idle) return
+    this.changeState(CollabState.Pushing)
     let version = getSyncedVersion(this.view.state)
-    pushUpdates(this.connection, version, updates)
-    this.pushing = false
+    const serialized = serializeUpdates(updates)
+    this.connection.pushUpdates(version, serialized)
+    this.changeState(CollabState.Idle)
     this.applyPendingUpdates()
     if (sendableUpdates(this.view.state).length) {
       this._debouncedPushUpdate()
@@ -104,27 +109,23 @@ class PeerExtensionPlugin {
   }
 
   //TODO: Error handling
-  async _getUpdates() {
+  private async _getUpdates() {
+    this.changeState(CollabState.Pulling)
     let version = getSyncedVersion(this.view.state)
-    const updates = await pullUpdates(this.connection, version)
-    console.log('pullied updates', updates)
+    const updates = await this.connection.pullUpdates(version)
     this.applyUpdates(updates)
   }
 
-  applyUpdates(updates: Update[]) {
-    this.view.dispatch(receiveUpdates(this.view.state, deserializeUpdates(updates)))
-    this.notifyVersionUpdate()
+  private applyUpdates(updates: Update[]) {
+    const tr = receiveUpdates(this.view.state, deserializeUpdates(updates))
+    this.view.dispatch(tr, { annotations: [remoteUpdateRecieved.of(true)] })
   }
 
-  applyPendingUpdates() {
+  private applyPendingUpdates() {
     if (this.pendingRecieved.length) {
       this.applyUpdates(this.pendingRecieved)
       this.pendingRecieved.length = 0
     }
-  }
-
-  notifyVersionUpdate() {
-    this.conf.colab.onVersionUpdate?.(getSyncedVersion(this.view.state), sendableUpdates(this.view.state).length > 0)
   }
 
   destroy() {

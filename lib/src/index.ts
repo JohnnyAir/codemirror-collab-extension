@@ -11,7 +11,7 @@ const peerCollab = (connection: IPeerConnection, options: PeerColabConfig) => {
       connection,
       docStartVersion,
       selection,
-      colab: {},
+      pushUpdateDelay: 200
     }),
     peerExtension(clientID, docStartVersion),
     peerSelection,

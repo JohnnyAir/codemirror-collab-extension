@@ -2,7 +2,7 @@ import { Decoration, DecorationSet, EditorView, ViewPlugin, ViewUpdate } from '@
 import { EditorSelection, Range, Extension } from '@codemirror/state'
 import { baseSelectionStyles } from './theme'
 import { getSyncedVersion, sendableUpdates } from '@codemirror/collab'
-import { IPeerCollabConfig, peerCollabConfig } from './peer-collab'
+import { IPeerCollabConfig, remoteUpdateRecieved, peerCollabConfig } from './peer-collab'
 import { PeerCursorWidget, createCursorDecoration } from './cursor'
 import { IPeerConnection, PeerSelectionRange } from './types'
 import { PeerSelectionState, peerSelectionField, peerSelectionsAnnotation } from './peer-selection-state'
@@ -21,11 +21,6 @@ class PeerSelectionPlugin {
     this.config = view.state.facet(peerCollabConfig)
     this.connection = this.config.connection
     this._subscribeToPeersEditorSelections()
-    this.config.colab.onVersionUpdate = (_, hasUnconfirmedChanges) => {
-      if (!hasUnconfirmedChanges) {
-        this._broadcastSelection()
-      }
-    }
   }
 
   update(update: ViewUpdate) {
@@ -36,10 +31,8 @@ class PeerSelectionPlugin {
   }
 
   _brodcastUserSelection(update: ViewUpdate) {
-    if (update.selectionSet && update.transactions.length) {
-      //const tr = update.transactions[0]
-      //TODO: don't send when pushing or disconneted.
-      //Use facet to hold these values?
+    const hasRemoteUpdate = update.transactions.some((tr) => tr.annotation(remoteUpdateRecieved))
+    if (update.selectionSet || hasRemoteUpdate) {
       if (!sendableUpdates(update.view.state).length) {
         this._broadcastSelection()
       }

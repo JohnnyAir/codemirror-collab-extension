@@ -91,4 +91,10 @@ export type PeerColabConfig = {
   clientID: string
   docStartVersion: number
   selection: SelectionConfig
+  /**
+   * The delay (in milliseconds) used to throttle the frequency of pushing updates
+   * to the server. This value determines the time interval during which multiple
+   * updates will be collected before being sent in a single request.
+   */
+  pushUpdateDelay: number
 }
