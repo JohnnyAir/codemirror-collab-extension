@@ -1,18 +1,9 @@
 import { Update, receiveUpdates, sendableUpdates, collab, getSyncedVersion } from '@codemirror/collab'
-import { ChangeSet, Facet, Annotation } from '@codemirror/state'
+import { ChangeSet, Annotation } from '@codemirror/state'
 import { EditorView, ViewPlugin, ViewUpdate } from '@codemirror/view'
 import { debounce } from './utils'
-import { IPeerConnection, PeerColabConfig } from './types'
-
-export type IPeerCollabConfig = PeerColabConfig & {
-  connection: IPeerConnection
-}
-
-export const peerCollabConfig = Facet.define<IPeerCollabConfig, IPeerCollabConfig>({
-  combine(value) {
-    return value[value.length - 1]!
-  },
-})
+import { IPeerConnection } from './types'
+import { PeerConfig, peerConfig } from './config'
 
 const serializeUpdates = (updates: readonly Update[]): Update[] => {
   return updates.map((u) => ({
@@ -29,7 +20,7 @@ const deserializeUpdates = (updates: Update[]): Update[] => {
   }))
 }
 
-export const remoteUpdateRecieved = Annotation.define<{}>()
+export const remoteUpdateRecieved = Annotation.define<boolean>()
 
 enum CollabState {
   Idle = 'idle',
@@ -39,21 +30,21 @@ enum CollabState {
 }
 
 class PeerExtensionPlugin {
-  private pState: CollabState = CollabState.Idle
+  private cbState: CollabState = CollabState.Idle
   private pendingRecieved = []
-  private conf: IPeerCollabConfig
+  private conf: PeerConfig
   private connection: IPeerConnection
 
   constructor(private view: EditorView) {
-    this.conf = view.state.facet(peerCollabConfig)
+    this.conf = view.state.facet(peerConfig)
     this.connection = this.conf.connection
     this.onConnected()
-    this.onRecieved()
+    this.receiveUpdates()
     this.onDisconnected()
   }
 
   private changeState(newState: CollabState) {
-    this.pState = newState
+    this.cbState = newState
   }
 
   private onDisconnected() {
@@ -64,7 +55,7 @@ class PeerExtensionPlugin {
 
   private onConnected() {
     this.connection.onConnected(async () => {
-      if (this.pState === CollabState.Disconnected) {
+      if (this.cbState === CollabState.Disconnected) {
         await this._getUpdates()
         this.changeState(CollabState.Idle)
         this._pushUpdate()
@@ -72,9 +63,9 @@ class PeerExtensionPlugin {
     })
   }
 
-  private onRecieved() {
+  private receiveUpdates() {
     this.connection.onUpdatesReceived((updates) => {
-      if (this.pState !== CollabState.Idle) {
+      if (this.cbState !== CollabState.Idle) {
         this.pendingRecieved.push.apply(updates)
         return
       }
@@ -96,7 +87,7 @@ class PeerExtensionPlugin {
 
   private async _pushUpdate() {
     let updates = sendableUpdates(this.view.state)
-    if (!updates.length || this.pState !== CollabState.Idle) return
+    if (!updates.length || this.cbState !== CollabState.Idle) return
     this.changeState(CollabState.Pushing)
     let version = getSyncedVersion(this.view.state)
     const serialized = serializeUpdates(updates)
@@ -108,12 +99,15 @@ class PeerExtensionPlugin {
     }
   }
 
-  //TODO: Error handling
   private async _getUpdates() {
-    this.changeState(CollabState.Pulling)
-    let version = getSyncedVersion(this.view.state)
-    const updates = await this.connection.pullUpdates(version)
-    this.applyUpdates(updates)
+    try {
+      this.changeState(CollabState.Pulling)
+      let version = getSyncedVersion(this.view.state)
+      const updates = await this.connection.pullUpdates(version)
+      this.applyUpdates(updates)
+    } catch (error) {
+      console.error(error)
+    }
   }
 
   private applyUpdates(updates: Update[]) {

@@ -2,23 +2,24 @@ import { Decoration, DecorationSet, EditorView, ViewPlugin, ViewUpdate } from '@
 import { EditorSelection, Range, Extension } from '@codemirror/state'
 import { baseSelectionStyles } from './theme'
 import { getSyncedVersion, sendableUpdates } from '@codemirror/collab'
-import { IPeerCollabConfig, remoteUpdateRecieved, peerCollabConfig } from './peer-collab'
+import { remoteUpdateRecieved } from './peer-collab'
 import { PeerCursorWidget, createCursorDecoration } from './cursor'
 import { IPeerConnection, PeerSelectionRange } from './types'
 import { PeerSelectionState, peerSelectionField, peerSelectionsAnnotation } from './peer-selection-state'
+import { peerConfig, PeerConfig } from './config'
 
 class PeerSelectionPlugin {
   decorations: DecorationSet
   peerSelectionState: Readonly<PeerSelectionState>
   localSelection: EditorSelection | null
-  config: IPeerCollabConfig
+  config: PeerConfig
   connection: IPeerConnection
 
   constructor(public view: EditorView) {
     this.decorations = Decoration.none
     this.localSelection = null
     this.peerSelectionState = view.state.field(peerSelectionField)
-    this.config = view.state.facet(peerCollabConfig)
+    this.config = view.state.facet(peerConfig)
     this.connection = this.config.connection
     this._subscribeToPeersEditorSelections()
   }
@@ -77,7 +78,7 @@ class PeerSelectionPlugin {
     const toLine = update.view.state.doc.lineAt(to)
     const isSingleLineSelection = fromLine.number === toLine.number
     const decorationOption = {
-      attributes: { style: `background-color: ${user.color}33` },
+      attributes: { style: `background-color: ${user.bgColor}33` },
       class: 'peer-user-selection',
     }
 

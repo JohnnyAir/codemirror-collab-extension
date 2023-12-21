@@ -1,17 +1,15 @@
-import { peerCollabConfig, peerExtension } from './peer-collab'
+import { PeerConfigOptions, peerConfig } from './config'
+import { peerExtension } from './peer-collab'
 import { peerSelection } from './peer-selection'
-import { IPeerConnection, PeerColabConfig } from './types'
+import { IPeerConnection } from './types'
 
-const peerCollab = (connection: IPeerConnection, options: PeerColabConfig) => {
-  const { clientID, docStartVersion, selection } = options
+const peerCollab = (connection: IPeerConnection, options: PeerConfigOptions) => {
+  const { clientID, docStartVersion = 0 } = options
 
   return [
-    peerCollabConfig.of({
-      clientID,
+    peerConfig.of({
       connection,
-      docStartVersion,
-      selection,
-      pushUpdateDelay: 200
+      ...options,
     }),
     peerExtension(clientID, docStartVersion),
     peerSelection,
@@ -19,5 +17,5 @@ const peerCollab = (connection: IPeerConnection, options: PeerColabConfig) => {
 }
 
 //Exports
-export { peerCollab, peerExtension, peerSelection }
+export { peerCollab, peerExtension, peerSelection, PeerConfigOptions }
 export * from './types'

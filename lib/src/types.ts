@@ -1,6 +1,12 @@
 import { Update } from '@codemirror/collab'
 import { EditorSelection, SelectionRange } from '@codemirror/state'
 
+type PeerUser = {
+  name: string
+  color: string
+  bgColor: string
+}
+
 export type PeerSelectionRangeJSON = {
   main: number
   ranges: Pick<SelectionRange, 'anchor' | 'head'>[]
@@ -8,20 +14,20 @@ export type PeerSelectionRangeJSON = {
 
 export type PeerEditorSelectionJSON = {
   version: number
-  user: { name: string; color: string }
+  user: PeerUser
   selection: PeerSelectionRangeJSON | null
 }
 
 export type PeerEditorSelection = {
   clientID: string
   version: number
-  user: { name: string; color: string }
+  user: PeerUser
   selection: EditorSelection
 }
 
 export type PeerSelectionRange = {
   clientID: string
-  user: { name: string; color: string }
+  user: PeerUser
   range: SelectionRange
 }
 
@@ -85,16 +91,4 @@ export type SelectionConfig = {
   name: string
   color: string
   bgColor: string
-}
-
-export type PeerColabConfig = {
-  clientID: string
-  docStartVersion: number
-  selection: SelectionConfig
-  /**
-   * The delay (in milliseconds) used to throttle the frequency of pushing updates
-   * to the server. This value determines the time interval during which multiple
-   * updates will be collected before being sent in a single request.
-   */
-  pushUpdateDelay: number
 }

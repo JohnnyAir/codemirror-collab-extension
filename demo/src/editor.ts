@@ -45,15 +45,15 @@ const disableSpellCheck = EditorView.contentAttributes.of({
   'data-gramm': 'false',
 })
 
-export const loadEditor = async (parent: Element) => {
+const createEditorState = async () => {
   const editorDocument = await getDocument()
   if (!editorDocument) return
   const { version, doc } = editorDocument
 
-  const color = tinycolor.random().toHex()
+  const color = tinycolor.random()
 
-  const state = EditorState.create({
-    doc,
+  return EditorState.create({
+    doc: doc,
     extensions: [
       basicSetup,
       editorStyles,
@@ -65,13 +65,17 @@ export const loadEditor = async (parent: Element) => {
         docStartVersion: version,
         selection: {
           name: 'Anon:' + clientID,
-          color: `#${color}`,
-          bgColor: `#${color}`,
+          color: color.isLight() ? 'black' : 'white',
+          bgColor: `#${color.toHex()}`,
         },
+        pushUpdateDelay: 100,
       }),
     ],
   })
+}
 
+export const loadEditor = async (parent: Element) => {
+  const state = await createEditorState()
   new EditorView({ state, parent })
   notifyClientId(clientID)
   notifyEditorConnectionState('connected')
