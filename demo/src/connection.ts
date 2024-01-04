@@ -2,7 +2,9 @@ import { Socket, io } from 'socket.io-client'
 import { IPeerConnection } from '@joncodes/codemirror-collab-extension'
 import { Update } from '@codemirror/collab'
 
-export const createPeerConnection = (clientID: string): IPeerConnection & { socket: Socket; connect: () => void } => {
+type PConnection = IPeerConnection & { socket: Socket; connect: () => void }
+
+export const createPeerConnection = (clientID: string): PConnection => {
   const url = 'http://localhost:4000'
 
   const socket = io(url, {

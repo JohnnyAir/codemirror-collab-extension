@@ -1,9 +1,19 @@
 import { Update } from '@codemirror/collab'
 import { EditorSelection, SelectionRange } from '@codemirror/state'
+import { PeerSelectionEvents } from './peer-selection'
 
-type PeerUser = {
+export type PeerUser = {
+  /**
+   * Peer's remote username.
+   */
   name: string
+  /**
+   * Hex color string representing the peer's remote cursor text color.
+   */
   color: string
+  /**
+   * Hex color string representing the peer's remote cursor color.
+   */
   bgColor: string
 }
 
@@ -34,7 +44,7 @@ export type PeerSelectionRange = {
 /**
  * Represents a peer connection for collaborative editing.
  */
-export interface IPeerConnection {
+export interface IPeerCollabConnection {
   /**
    * Registers a callback to be invoked when the connection is established.
    * @param onConnectedCallback - The callback function to be executed on connection.
@@ -68,27 +78,9 @@ export interface IPeerConnection {
   onUpdatesReceived: (onUpdatesReceivedCallback: (updates: Update[]) => void) => void
 
   /**
-   * Shares the local selection and cursor with other peers.
-   * @param localSelectionData - The local selection data to be broadcasted.
-   */
-  onBroadcastLocalSelection: (clientID: string, localSelectionData: PeerEditorSelectionJSON) => void
-
-  /**
-   * Receives selection and cursor updates from peers.
-   * @param onReceiveSelectionCallback - The callback function to handle received selection updates.
-   */
-  onReceiveSelection: (
-    onReceiveSelectionCallback: (clientID: string, data: PeerEditorSelectionJSON | null) => void
-  ) => void
-
-  /**
    * Performs cleanup operations.
    */
   destroy: () => void
 }
 
-export type SelectionConfig = {
-  name: string
-  color: string
-  bgColor: string
-}
+export type IPeerConnection = IPeerCollabConnection & PeerSelectionEvents

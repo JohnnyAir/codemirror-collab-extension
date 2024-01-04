@@ -4,24 +4,63 @@ import { baseSelectionStyles } from './theme'
 import { getSyncedVersion, sendableUpdates } from '@codemirror/collab'
 import { remoteUpdateRecieved } from './peer-collab'
 import { PeerCursorWidget, createCursorDecoration } from './cursor'
-import { IPeerConnection, PeerSelectionRange } from './types'
+import { PeerSelectionRange, PeerUser } from './types'
 import { PeerSelectionState, peerSelectionField, peerSelectionsAnnotation } from './peer-selection-state'
-import { peerConfig, PeerConfig } from './config'
+import { Facet, combineConfig } from '@codemirror/state'
+import { PeerEditorSelectionJSON } from './types'
+
+export interface PeerSelectionEvents {
+  /**
+   * Shares the local selection and cursor with other peers.
+   * @param localSelectionData - The local selection data to be broadcasted.
+   */
+  onBroadcastLocalSelection: (clientID: string, localSelectionData: PeerEditorSelectionJSON) => void
+  /**
+   * Receives selection and cursor updates from peers.
+   * @param onReceiveSelectionCallback - The callback function to handle received selection updates.
+   */
+  onReceiveSelection: (
+    onReceiveSelectionCallback: (clientID: string, data: PeerEditorSelectionJSON | null) => void
+  ) => void
+}
+
+export interface PeerSelectionOptions {
+  user: PeerUser
+  /**
+   * Number of milliseconds to show the username tooltip before hiding it.
+   */
+  tooltipHideDelayMs?: number
+  /**
+   * when `true`, it will send event to remove cursor when the editor loses focus.
+   */
+  removeOnEditorFocusOut?: boolean
+}
+
+export type PeerSelectionConfigOptions = PeerSelectionOptions & PeerSelectionEvents
+export type PeerSelectionFullConfig = Required<PeerSelectionConfigOptions> & { clientID: string }
+
+const peerSelectionConfig = Facet.define<PeerSelectionConfigOptions, PeerSelectionFullConfig>({
+  combine(value) {
+    const combined = combineConfig<PeerSelectionFullConfig>(value, {
+      tooltipHideDelayMs: 1000,
+      removeOnEditorFocusOut: false,
+    })
+    return combined
+  },
+})
 
 class PeerSelectionPlugin {
   decorations: DecorationSet
   peerSelectionState: Readonly<PeerSelectionState>
   localSelection: EditorSelection | null
-  config: PeerConfig
-  connection: IPeerConnection
+  config: PeerSelectionFullConfig
 
   constructor(public view: EditorView) {
     this.decorations = Decoration.none
     this.localSelection = null
     this.peerSelectionState = view.state.field(peerSelectionField)
-    this.config = view.state.facet(peerConfig)
-    this.connection = this.config.connection
-    this._subscribeToPeersEditorSelections()
+    this.config = view.state.facet(peerSelectionConfig)
+    this._subscribeToRemoteSelections()
   }
 
   update(update: ViewUpdate) {
@@ -43,15 +82,15 @@ class PeerSelectionPlugin {
   _broadcastSelection() {
     this.localSelection = this.view.state.selection
     const selection = this.localSelection.toJSON()
-    this.connection.onBroadcastLocalSelection(this.config.clientID, {
+    this.config.onBroadcastLocalSelection(this.config.clientID, {
       version: getSyncedVersion(this.view.state),
-      user: this.config.selection,
+      user: this.config.user,
       selection,
     })
   }
 
-  _subscribeToPeersEditorSelections() {
-    this.connection.onReceiveSelection((clientID, peerSelectionJson) => {
+  _subscribeToRemoteSelections() {
+    this.config.onReceiveSelection((clientID, peerSelectionJson) => {
       this.view.dispatch({
         annotations: [peerSelectionsAnnotation.of([clientID, peerSelectionJson])],
       })
@@ -98,6 +137,7 @@ class PeerSelectionPlugin {
         decorations.push(Decoration.mark(decorationOption).range(toLine.from, to))
       }
 
+      //line decoration to lines in between the selections
       for (let i = fromLine.number + 1; i < toLine.number; i++) {
         const lineNum = update.view.state.doc.line(i).from
         decorations.push(Decoration.line(decorationOption).range(lineNum, lineNum))
@@ -114,7 +154,7 @@ class PeerSelectionPlugin {
   _hideCursorsTooltip() {
     setTimeout(() => {
       PeerCursorWidget.hideCursorsTooltip(this.view)
-    }, 1000)
+    }, this.config.tooltipHideDelayMs)
   }
 
   destroy() {
@@ -122,7 +162,8 @@ class PeerSelectionPlugin {
   }
 }
 
-export const peerSelection: Extension = [
+export const peerSelection = (config: PeerSelectionConfigOptions & { clientID: string }): Extension => [
+  peerSelectionConfig.of(config),
   peerSelectionField,
   ViewPlugin.fromClass(PeerSelectionPlugin, {
     decorations: (v) => v.decorations,

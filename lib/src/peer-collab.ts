@@ -1,9 +1,40 @@
 import { Update, receiveUpdates, sendableUpdates, collab, getSyncedVersion } from '@codemirror/collab'
-import { ChangeSet, Annotation } from '@codemirror/state'
+import { ChangeSet, Annotation, Facet, combineConfig } from '@codemirror/state'
 import { EditorView, ViewPlugin, ViewUpdate } from '@codemirror/view'
 import { debounce } from './utils'
-import { IPeerConnection } from './types'
-import { PeerConfig, peerConfig } from './config'
+import { IPeerCollabConnection } from './types'
+
+export type CollabConfigOptions = {
+  /**
+   * A unique identifier for the client.
+   */
+  clientID: string
+  /**
+   * The starting document version. Defaults to 0.
+   */
+  docStartVersion?: number
+  /**
+   * The debounce delay (in milliseconds) for pushing document updates to the authority.
+   * Specify the time interval for collecting multiple updates before sending
+   * them in a single request.
+   */
+  pushUpdateDelayMs?: number
+}
+
+type ConfigOptionsWithConnection = { connection: IPeerCollabConnection } & CollabConfigOptions
+
+// fully populated configuration, ensures all optional fields have default values.
+export type PeerCollabConfig = { connection: IPeerCollabConnection } & Required<CollabConfigOptions>
+
+/**
+ *  Configuration Facet, combine provided options with default values.
+ */
+export const peerConfig = Facet.define<ConfigOptionsWithConnection, PeerCollabConfig>({
+  combine(value) {
+    const combined = combineConfig<PeerCollabConfig>(value, { docStartVersion: 0, pushUpdateDelayMs: 100 })
+    return combined
+  },
+})
 
 const serializeUpdates = (updates: readonly Update[]): Update[] => {
   return updates.map((u) => ({
@@ -32,8 +63,8 @@ enum CollabState {
 class PeerExtensionPlugin {
   private cbState: CollabState = CollabState.Idle
   private pendingRecieved = []
-  private conf: PeerConfig
-  private connection: IPeerConnection
+  private conf: PeerCollabConfig
+  private connection: IPeerCollabConnection
 
   constructor(private view: EditorView) {
     this.conf = view.state.facet(peerConfig)
@@ -80,7 +111,7 @@ class PeerExtensionPlugin {
   }
 
   private get _debouncedPushUpdate() {
-    const func = debounce(() => this._pushUpdate(), this.conf.pushUpdateDelay)
+    const func = debounce(() => this._pushUpdate(), this.conf.pushUpdateDelayMs)
     Object.defineProperty(this, '_debouncedPushUpdate', { value: func, writable: false })
     return func
   }
@@ -127,6 +158,13 @@ class PeerExtensionPlugin {
   }
 }
 
-export function peerExtension(clientID: string, startVersion: number) {
-  return [collab({ startVersion, clientID }), ViewPlugin.fromClass(PeerExtensionPlugin)]
+export function peerCollab(connection: IPeerCollabConnection, config: CollabConfigOptions) {
+  return [
+    peerConfig.of({
+      connection,
+      ...config,
+    }),
+    collab({ startVersion: config.docStartVersion, clientID: config.clientID }),
+    ViewPlugin.fromClass(PeerExtensionPlugin),
+  ]
 }

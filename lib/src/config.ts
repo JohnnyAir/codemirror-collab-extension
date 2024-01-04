@@ -1,21 +1,30 @@
 import { Facet, combineConfig } from '@codemirror/state'
-import { IPeerConnection, SelectionConfig } from '.'
+import { IPeerConnection } from './types'
 
+/**
+ * Options for configuring the behavior and appearance of collaborative editing with peers.
+ */
 export type PeerConfigOptions = {
-  clientID: string
-  docStartVersion?: number
-  selection: SelectionConfig
   /**
-   * The delay (in milliseconds) used to throttle the frequency of pushing updates
-   * to the server. This value determines the time interval during which multiple
-   * updates will be collected before being sent in a single request.
+   * A unique identifier for the client.
    */
-  pushUpdateDelay?: number
+  clientID: string
+  /**
+   * The starting document version. Defaults to 0.
+   */
+  docStartVersion?: number
+  /**
+   * The debounce delay (in milliseconds) for pushing document updates to the authority.
+   * Specify the time interval for collecting multiple updates before sending
+   * them in a single request.
+   */
+  pushUpdateDelayMs?: number
 }
 
+// fully populated configuration, ensures all optional fields have default values.
 type Config = Required<PeerConfigOptions>
 
-type ConfigWithConnection<T extends PeerConfigOptions> = T & {
+export type ConfigWithConnection<T extends object> = T & {
   connection: IPeerConnection
 }
 
@@ -23,9 +32,12 @@ type ConfigOptionsWithConnection = ConfigWithConnection<PeerConfigOptions>
 
 export type PeerConfig = ConfigWithConnection<Config>
 
+/**
+ * Facet for managing collaborative editing configuration, combining provided options with default values.
+ */
 export const peerConfig = Facet.define<ConfigOptionsWithConnection, PeerConfig>({
   combine(value) {
-    const combined = combineConfig<PeerConfig>(value, { docStartVersion: 0, pushUpdateDelay: 100 })
+    const combined = combineConfig<PeerConfig>(value, { docStartVersion: 0, pushUpdateDelayMs: 100 })
     return combined
   },
 })

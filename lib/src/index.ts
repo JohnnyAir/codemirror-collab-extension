@@ -1,21 +1,44 @@
-import { PeerConfigOptions, peerConfig } from './config'
-import { peerExtension } from './peer-collab'
-import { peerSelection } from './peer-selection'
-import { IPeerConnection } from './types'
+import { Extension } from '@codemirror/state'
+import { PeerConfigOptions } from './config'
+import { CollabConfigOptions, peerCollab } from './peer-collab'
+import { PeerSelectionConfigOptions, PeerSelectionOptions, peerSelection, PeerSelectionEvents } from './peer-selection'
+import { IPeerCollabConnection, IPeerConnection } from './types'
 
-const peerCollab = (connection: IPeerConnection, options: PeerConfigOptions) => {
-  const { clientID, docStartVersion = 0 } = options
-
-  return [
-    peerConfig.of({
-      connection,
-      ...options,
-    }),
-    peerExtension(clientID, docStartVersion),
-    peerSelection,
-  ]
+type peerExtensionFunc = {
+  (connection: IPeerCollabConnection, collabOptions: CollabConfigOptions, selectionOptions: undefined): Extension
+  (
+    connection: IPeerCollabConnection,
+    collabOptions: CollabConfigOptions,
+    selectionOptions: PeerSelectionConfigOptions
+  ): Extension
+  (connection: IPeerConnection, collabOptions: CollabConfigOptions, selectionOptions: PeerSelectionOptions): Extension
 }
 
-//Exports
-export { peerCollab, peerExtension, peerSelection, PeerConfigOptions }
+const peerExtension: peerExtensionFunc = (connection, collabOptions, selectionOptions) => {
+  const { clientID } = collabOptions
+
+  const extensions: Extension[] = []
+
+  extensions.push(peerCollab(connection, collabOptions))
+
+  if (selectionOptions) {
+    const selectionOpts = selectionOptions as PeerSelectionConfigOptions
+    const pConnection = connection as IPeerConnection
+
+    extensions.push(
+      peerSelection({
+        clientID,
+        ...selectionOptions,
+        onBroadcastLocalSelection: selectionOpts.onBroadcastLocalSelection || pConnection.onBroadcastLocalSelection,
+        onReceiveSelection: selectionOpts.onReceiveSelection || pConnection.onReceiveSelection,
+      })
+    )
+  }
+
+  return extensions
+}
+
+//exports
+export default peerExtension
+export { peerCollab, peerExtension, peerSelection, PeerSelectionEvents, PeerConfigOptions }
 export * from './types'

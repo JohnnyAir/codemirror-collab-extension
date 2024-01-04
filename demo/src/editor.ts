@@ -3,7 +3,7 @@ import { EditorState, Text } from '@codemirror/state'
 import { EditorView } from '@codemirror/view'
 import { createPeerConnection } from './connection'
 import { javascript } from '@codemirror/lang-javascript'
-import { peerCollab } from '@joncodes/codemirror-collab-extension'
+import { peerExtension } from '@joncodes/codemirror-collab-extension'
 import { nightOwl } from 'code-mirror-night-owl'
 import tinycolor from 'tinycolor2'
 
@@ -52,6 +52,20 @@ const createEditorState = async () => {
 
   const color = tinycolor.random()
 
+  const config = {
+    clientID,
+    docStartVersion: version,
+    pushUpdateDelayMs: 100,
+  }
+
+  const selection = {
+    user: {
+      name: 'User:' + clientID,
+      color: color.isLight() ? 'black' : 'white',
+      bgColor: `#${color.toHex()}`,
+    },
+  }
+
   return EditorState.create({
     doc: doc,
     extensions: [
@@ -60,16 +74,7 @@ const createEditorState = async () => {
       disableSpellCheck,
       nightOwl,
       javascript({ typescript: true }),
-      peerCollab(connection, {
-        clientID,
-        docStartVersion: version,
-        selection: {
-          name: 'Anon:' + clientID,
-          color: color.isLight() ? 'black' : 'white',
-          bgColor: `#${color.toHex()}`,
-        },
-        pushUpdateDelay: 100,
-      }),
+      peerExtension(connection, config, selection),
     ],
   })
 }
