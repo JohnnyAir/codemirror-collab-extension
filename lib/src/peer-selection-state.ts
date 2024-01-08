@@ -1,39 +1,54 @@
 import { Annotation, EditorSelection, StateField, Transaction } from '@codemirror/state'
 import { PeerEditorSelection, PeerEditorSelectionJSON, PeerSelectionRange } from './types'
 import { getSyncedVersion } from '@codemirror/collab'
+import { remoteUpdateRecieved } from './peer-collab'
 
 export class PeerSelectionState {
   public selectionMap: Map<string, PeerEditorSelection>
 
-  constructor(instance: PeerSelectionState)
-  constructor(selectionMap: Map<string, PeerEditorSelection>)
-  constructor(instanceOrSelectionMap: PeerSelectionState | Map<string, PeerEditorSelection>) {
+  constructor(instanceOrSelectionMap?: PeerSelectionState | Map<string, PeerEditorSelection>) {
     if (instanceOrSelectionMap instanceof PeerSelectionState) {
       this.selectionMap = new Map(instanceOrSelectionMap.selectionMap)
     } else {
-      this.selectionMap = instanceOrSelectionMap
+      this.selectionMap = instanceOrSelectionMap || new Map()
     }
   }
 
-  get selections() {
+  public get selections() {
     return Array.from(this.selectionMap.values())
   }
 
-  get selectionsRanges() {
-    return this._combinePeersSelectionRange(this.selections)
+  public get selectionsRanges() {
+    return this.getAllSelectionRanges(this.selections)
   }
 
-  _combinePeersSelectionRange(selections: PeerEditorSelection[]) {
-    return selections.reduce((combined, { selection, user, version, clientID }) => {
-      const peerRanges = selection.ranges.map((range) => ({
-        clientID,
-        user,
-        range,
-        version,
-      }))
-      combined.push.apply(combined, peerRanges)
-      return combined
-    }, [] as PeerSelectionRange[])
+  // optimistically move the cursor(s) of a peer that made changes to the document.
+  private applyOptimisticSelectionUpdateForRemoteUserChange(clientID: string, tr: Transaction) {
+    //get selection of the user that make the remote changes
+    const peerSelection = this.selectionMap.get(clientID)
+    if (!peerSelection) return
+
+    const cursors = peerSelection.selection.ranges.filter((r) => r.empty)
+    const multiRangeSelections = peerSelection.selection.ranges.filter((r) => !r.empty)
+
+    // Optimistically update cursors position based on document changes
+    tr.changes.iterChanges((_, toA, __, toB) => {
+      const cursorIndex = cursors.findIndex((r) => r.head == toA)
+      if (cursorIndex > -1) {
+        cursors[cursorIndex] = EditorSelection.cursor(toB)
+      }
+    })
+
+    // Map non-empty selections through transaction changes
+    const updatedMultiSelection = multiRangeSelections.map((r) => r.map(tr.changes))
+    const updatedSelection = EditorSelection.create(updatedMultiSelection.concat(cursors))
+    this.selectionMap.set(clientID, { ...peerSelection, selection: updatedSelection })
+  }
+
+  private getAllSelectionRanges(selections: PeerEditorSelection[]) {
+    const convertSelectionMapToPeerRanges = ({ selection, user, version, clientID }: PeerEditorSelection) =>
+      selection.ranges.map((range) => ({ clientID, user, range, version }))
+    return selections.flatMap<PeerSelectionRange>(convertSelectionMapToPeerRanges)
   }
 
   remove(id: string) {
@@ -56,35 +71,53 @@ export class PeerSelectionState {
     this.selectionMap.set(selection.clientID, selection)
   }
 
-  /**  Returns a new PeerSelectionState instance with adjusted selections based on transaction changes. */
-  static mapChanges(state: PeerSelectionState, tr: Transaction) {
-    const newState = new PeerSelectionState(state)
+  /**
+   * Map all remote selections through transaction changes.
+   * Adjusts all peers' selections' positions for changes.
+   * If doc-changed, optimistically move the cursor of the peer that made changes to the document.
+   */
+  mapChanges(tr: Transaction) {
+    const newState = new PeerSelectionState(this)
+    const remoteUpdate = tr.annotation(remoteUpdateRecieved)
+    const remoteClientID = remoteUpdate && remoteUpdate.clientID
+
+    //optimistic cursor position update for remote peer changes
+    if (tr.docChanged && remoteClientID && !remoteUpdate.isOwnChange) {
+      newState.applyOptimisticSelectionUpdateForRemoteUserChange(remoteClientID, tr)
+    }
+
     newState.selectionMap.forEach((ps) => {
-      ps.selection = ps.selection.map(tr.changes)
+      if (remoteClientID !== ps.clientID) ps.selection = ps.selection.map(tr.changes)
     })
+
     return newState
   }
 }
 
 export const peerSelectionsAnnotation = Annotation.define<[clientID: string, PeerEditorSelectionJSON | null]>()
 
+/**
+ * StateField to hold the selections of all connected remote peers
+ */
 export const peerSelectionField = StateField.define<Readonly<PeerSelectionState>>({
   create() {
-    return new PeerSelectionState(new Map())
+    return new PeerSelectionState()
   },
 
   update(state, tr) {
     const selectionUpdate = tr.annotation(peerSelectionsAnnotation)
-    //Adjust the selection position for changes.
-    const mappedSelectionState = PeerSelectionState.mapChanges(state, tr)
 
-    //TODO: optimistic cursor position update for remote changes
-    if (!selectionUpdate) return mappedSelectionState
+    // Adjust the selections' position for changes.
+    const newState = state.mapChanges(tr)
+
+    if (!selectionUpdate) return newState
     const [clientID, selectionJson] = selectionUpdate
+
+    // remove peer selection if data recieved is null or falsy.
     if (!selectionJson) {
-      mappedSelectionState.remove(clientID)
+      newState.remove(clientID)
     } else {
-      mappedSelectionState.addOrUpdate(
+      newState.addOrUpdate(
         {
           clientID,
           ...selectionJson,
@@ -94,6 +127,6 @@ export const peerSelectionField = StateField.define<Readonly<PeerSelectionState>
       )
     }
 
-    return mappedSelectionState
+    return newState
   },
 })

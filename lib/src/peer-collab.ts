@@ -51,7 +51,11 @@ const deserializeUpdates = (updates: Update[]): Update[] => {
   }))
 }
 
-export const remoteUpdateRecieved = Annotation.define<boolean>()
+export const remoteUpdateRecieved = Annotation.define<{
+  clientID: string | null
+  clientIDs: string[]
+  isOwnChange: boolean
+}>()
 
 enum CollabState {
   Idle = 'idle',
@@ -141,9 +145,16 @@ class PeerExtensionPlugin {
     }
   }
 
+  private getUpdateAnnontation(updates: Update[]) {
+    const clientIDs = Array.from(new Set(updates.map((u) => u.clientID)))
+    const clientID = clientIDs.length === 1 && clientIDs[0] ? clientIDs[0] : null
+    const isOwnChange = clientID === this.conf.clientID
+    return [remoteUpdateRecieved.of({ clientID, clientIDs, isOwnChange })]
+  }
+
   private applyUpdates(updates: Update[]) {
     const tr = receiveUpdates(this.view.state, deserializeUpdates(updates))
-    this.view.dispatch(tr, { annotations: [remoteUpdateRecieved.of(true)] })
+    this.view.dispatch(tr, { annotations: this.getUpdateAnnontation(updates) })
   }
 
   private applyPendingUpdates() {

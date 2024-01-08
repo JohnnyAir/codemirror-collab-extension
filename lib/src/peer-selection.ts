@@ -71,8 +71,9 @@ class PeerSelectionPlugin {
   }
 
   _brodcastUserSelection(update: ViewUpdate) {
-    const hasRemoteUpdate = update.transactions.some((tr) => tr.annotation(remoteUpdateRecieved))
-    if (update.selectionSet || hasRemoteUpdate) {
+    const remoteTransaction = update.transactions.find((tr) => tr.annotation(remoteUpdateRecieved))
+    const remoteUpdate = remoteTransaction?.annotation(remoteUpdateRecieved)
+    if (update.selectionSet || (remoteUpdate && remoteUpdate.isOwnChange)) {
       if (!sendableUpdates(update.view.state).length) {
         this._broadcastSelection()
       }
