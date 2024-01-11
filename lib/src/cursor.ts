@@ -1,19 +1,35 @@
 import { Range } from '@codemirror/state'
-import { EditorView, WidgetType, Decoration } from '@codemirror/view'
-import { PeerSelectionRange } from '.'
+import { WidgetType, Decoration } from '@codemirror/view'
+import { PeerSelectionRange, PeerUser } from './types'
+
+const cursorsTimeoutIds: { [clientID: string]: number } = {}
 
 export class PeerCursorWidget extends WidgetType {
+  private id: string
+  private isOptimistic?: boolean
+  private user: PeerUser
+
   constructor(
-    private id: string,
-    private name: string,
-    private color: string,
-    private bgColor: string
+    peerRange: PeerSelectionRange,
+    private tooltipHideDelay: number
   ) {
     super()
+    this.id = peerRange.clientID
+    this.isOptimistic = peerRange.isOptimistic
+    this.user = peerRange.user
   }
 
   eq(other: PeerCursorWidget) {
-    return other.id == this.id
+    return this.isOptimistic ? false : other.id == this.id
+  }
+
+  updateDOM(dom: HTMLElement): boolean {
+    const tooltip = dom.querySelector('.cm-peer-user-cursor-info')
+    if (tooltip) {
+      tooltip.classList.add('show-info')
+      this.hideCursorTooltip(tooltip)
+    }
+    return !!tooltip
   }
 
   toDOM() {
@@ -21,27 +37,31 @@ export class PeerCursorWidget extends WidgetType {
     wrap.setAttribute('aria-hidden', 'true')
     wrap.className = 'cm-peer-user-cursor'
     let cLine = document.createElement('div')
-    cLine.className = 'blink cm-peer-user-cursor-line'
-    cLine.style.borderColor = this.bgColor
-    cLine.style.backgroundColor = this.bgColor
+    cLine.className = 'cm-peer-user-cursor-line'
+    cLine.style.borderColor = this.user.bgColor
+    cLine.style.backgroundColor = this.user.bgColor
     let info = document.createElement('div')
     info.className = 'show-info cm-peer-user-cursor-info'
-    info.style.backgroundColor = this.bgColor
-    info.style.color = this.color
-    info.textContent = this.name
+    info.style.backgroundColor = this.user.bgColor
+    info.style.color = this.user.color
+    info.textContent = this.user.name
     wrap.append(cLine, info)
+    this.hideCursorTooltip(info)
     return wrap
   }
 
-  static hideCursorsTooltip(view: EditorView) {
-    view.contentDOM.querySelectorAll('.cm-peer-user-cursor-info').forEach((e) => e.classList.remove('show-info'))
+  hideCursorTooltip(tooltipNode: Element) {
+    clearTimeout(cursorsTimeoutIds[this.id])
+    cursorsTimeoutIds[this.id] = setTimeout(() => {
+      tooltipNode.classList.remove('show-info')
+    }, this.tooltipHideDelay)
   }
 }
 
-export const createCursorDecoration = (peerRange: PeerSelectionRange): Range<Decoration> => {
-  const { clientID, user, range } = peerRange
+export const createCursorDecoration = (peerRange: PeerSelectionRange, tooltipHideDelay: number): Range<Decoration> => {
+  const { range } = peerRange
   return Decoration.widget({
-    widget: new PeerCursorWidget(clientID, user.name, user.color, user.bgColor),
+    widget: new PeerCursorWidget(peerRange, tooltipHideDelay),
     side: 1,
   }).range(range.from, range.to)
 }

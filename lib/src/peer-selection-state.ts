@@ -22,7 +22,7 @@ export class PeerSelectionState {
     return this.getAllSelectionRanges(this.selections)
   }
 
-  // optimistically move the cursor(s) of a peer that made changes to the document.
+  // optimistically move the cursor(s) of the peer that made changes to the document.
   private applyOptimisticSelectionUpdateForRemoteUserChange(clientID: string, tr: Transaction) {
     //get selection of the user that make the remote changes
     const peerSelection = this.selectionMap.get(clientID)
@@ -39,15 +39,23 @@ export class PeerSelectionState {
       }
     })
 
-    // Map non-empty selections through transaction changes
+    // Map range selections through transaction changes
     const updatedMultiSelection = multiRangeSelections.map((r) => r.map(tr.changes))
     const updatedSelection = EditorSelection.create(updatedMultiSelection.concat(cursors))
-    this.selectionMap.set(clientID, { ...peerSelection, selection: updatedSelection })
+    this.selectionMap.set(clientID, { ...peerSelection, selection: updatedSelection, _optimistic: true })
   }
 
   private getAllSelectionRanges(selections: PeerEditorSelection[]) {
-    const convertSelectionMapToPeerRanges = ({ selection, user, version, clientID }: PeerEditorSelection) =>
-      selection.ranges.map((range) => ({ clientID, user, range, version }))
+    const convertSelectionMapToPeerRanges = (pSelection: PeerEditorSelection) => {
+      return pSelection.selection.ranges.map((range) => ({
+        range,
+        user: pSelection.user,
+        version: pSelection.version,
+        clientID: pSelection.clientID,
+        isOptimistic: range.empty ? pSelection._optimistic : undefined,
+      }))
+    }
+
     return selections.flatMap<PeerSelectionRange>(convertSelectionMapToPeerRanges)
   }
 

@@ -3,7 +3,7 @@ import { EditorSelection, Range, Extension } from '@codemirror/state'
 import { baseSelectionStyles } from './theme'
 import { getSyncedVersion, sendableUpdates } from '@codemirror/collab'
 import { remoteUpdateRecieved } from './peer-collab'
-import { PeerCursorWidget, createCursorDecoration } from './cursor'
+import { createCursorDecoration } from './cursor'
 import { PeerSelectionRange, PeerUser } from './types'
 import { PeerSelectionState, peerSelectionField, peerSelectionsAnnotation } from './peer-selection-state'
 import { Facet, combineConfig } from '@codemirror/state'
@@ -67,7 +67,6 @@ class PeerSelectionPlugin {
     this.peerSelectionState = this.view.state.field(peerSelectionField)
     this._brodcastUserSelection(update)
     this._computeSelectionsDecorations(update)
-    this._hideCursorsTooltip()
   }
 
   _brodcastUserSelection(update: ViewUpdate) {
@@ -102,7 +101,7 @@ class PeerSelectionPlugin {
     const decorationsRange = this.peerSelectionState.selectionsRanges
       .map((peerRange) => {
         if (peerRange.range.empty || peerRange.range.from === peerRange.range.to) {
-          return createCursorDecoration(peerRange)
+          return createCursorDecoration(peerRange, this.config.tooltipHideDelayMs)
         }
         return this._getSelectionRangeDecoration(update, peerRange)
       })
@@ -147,15 +146,9 @@ class PeerSelectionPlugin {
 
     //cursor
     const cursor = EditorSelection.cursor(range.head)
-    decorations.push(createCursorDecoration({ clientID, user, range: cursor }))
+    decorations.push(createCursorDecoration({ clientID, user, range: cursor }, this.config.tooltipHideDelayMs))
 
     return decorations
-  }
-
-  _hideCursorsTooltip() {
-    setTimeout(() => {
-      PeerCursorWidget.hideCursorsTooltip(this.view)
-    }, this.config.tooltipHideDelayMs)
   }
 
   destroy() {

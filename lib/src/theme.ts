@@ -10,7 +10,7 @@ export const baseSelectionStyles = EditorView.theme({
     bottom: '0',
     left: '0',
     right: '0',
-    borderLeft: '1px solid yellow',
+    borderLeft: '0.15em solid yellow',
   },
   '.cm-peer-user-cursor-line::after': {
     content: '""',
@@ -21,9 +21,6 @@ export const baseSelectionStyles = EditorView.theme({
     borderBottomRightRadius: '50%',
     borderTopRightRadius: '50%',
   },
-  // '.blink.cm-peer-user-cursor-line': {
-  //   animation: 'steps(1) cm-blink 1.2s infinite',
-  // },
   '.cm-peer-user-cursor-info': {
     position: 'absolute',
     top: '-1em',
@@ -40,7 +37,7 @@ export const baseSelectionStyles = EditorView.theme({
     zIndex: 101,
     borderRadius: '4px',
     borderBottomLeftRadius: '0px',
-    transition: 'opacity 1.5s ease-in-out',
+    transition: 'opacity 1.5s ease-out',
     backgroundColor: 'yellow',
     whiteSpace: 'nowrap',
     opacity: 0,

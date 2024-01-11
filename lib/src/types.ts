@@ -33,12 +33,14 @@ export type PeerEditorSelection = {
   version: number
   user: PeerUser
   selection: EditorSelection
+  _optimistic?: boolean
 }
 
 export type PeerSelectionRange = {
   clientID: string
   user: PeerUser
   range: SelectionRange
+  isOptimistic?: boolean
 }
 
 /**
