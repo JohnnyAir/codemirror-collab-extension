@@ -122,7 +122,7 @@ export const peerSelectionField = StateField.define<Readonly<PeerSelectionState>
     const [clientID, selectionJson] = selectionUpdate
 
     // remove peer selection if data recieved is null or falsy.
-    if (!selectionJson) {
+    if (!selectionJson?.selection) {
       newState.remove(clientID)
     } else {
       newState.addOrUpdate(

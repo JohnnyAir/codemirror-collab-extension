@@ -52,12 +52,10 @@ const peerSelectionConfig = Facet.define<PeerSelectionConfigOptions, PeerSelecti
 class PeerSelectionPlugin {
   decorations: DecorationSet
   peerSelectionState: Readonly<PeerSelectionState>
-  localSelection: EditorSelection | null
   config: PeerSelectionFullConfig
 
   constructor(public view: EditorView) {
     this.decorations = Decoration.none
-    this.localSelection = null
     this.peerSelectionState = view.state.field(peerSelectionField)
     this.config = view.state.facet(peerSelectionConfig)
     this._subscribeToRemoteSelections()
@@ -76,12 +74,14 @@ class PeerSelectionPlugin {
       if (!sendableUpdates(update.view.state).length) {
         this._broadcastSelection()
       }
+    } else if (this.config.removeOnEditorFocusOut && update.focusChanged && !update.view.hasFocus) {
+      this._broadcastSelection(true)
     }
   }
 
-  _broadcastSelection() {
-    this.localSelection = this.view.state.selection
-    const selection = this.localSelection.toJSON()
+  _broadcastSelection(removeCursor = false) {
+    const localSelection = this.view.state.selection
+    const selection = removeCursor ? null : localSelection.toJSON()
     this.config.onBroadcastLocalSelection(this.config.clientID, {
       version: getSyncedVersion(this.view.state),
       user: this.config.user,
