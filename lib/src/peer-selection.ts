@@ -130,18 +130,32 @@ class PeerSelectionPlugin {
     if (isSingleLineSelection) {
       decorations.push(Decoration.mark(decorationOption).range(from, to))
     } else {
-      //add mark decoration to first line
-      //mark decoration range cannot be empty. skip adding mark decoration when line is empty
-      if (fromLine.length !== 0) {
-        decorations.push(Decoration.mark(decorationOption).range(from, from + fromLine.length))
+      // Check if the first line is fully selected; use a line decoration if true, else use a mark for the selected ranges.
+      const isFromLineFullSelection = from === fromLine.from
+
+      if (fromLine.to - from !== 0 && !isFromLineFullSelection) {
+        // Add mark decoration to the first line if it isn't a full selection and the line range isn't empty.
+        decorations.push(Decoration.mark(decorationOption).range(from, fromLine.to))
       }
 
-      //add mark decoration to last line
-      if (toLine.length !== 0) {
+      if (isFromLineFullSelection) {
+        // Use a line decoration for the fully selected first line.
+        decorations.push(Decoration.line(decorationOption).range(from, from))
+      }
+
+      const isToLineFullSelection = to === toLine.to
+
+      // Add mark decoration to the last line if it isn't a full selection and the line range isn't empty.
+      if (to - toLine.from !== 0 && !isToLineFullSelection) {
         decorations.push(Decoration.mark(decorationOption).range(toLine.from, to))
       }
 
-      //line decoration to lines in between the selections
+      if (isToLineFullSelection) {
+        // Use a line decoration for the fully selected last line.
+        decorations.push(Decoration.line(decorationOption).range(to, to))
+      }
+
+      // All in-between lines will be fully selected, so use line decorations.
       for (let i = fromLine.number + 1; i < toLine.number; i++) {
         const lineNum = update.view.state.doc.line(i).from
         decorations.push(Decoration.line(decorationOption).range(lineNum, lineNum))
