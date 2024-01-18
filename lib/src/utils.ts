@@ -8,7 +8,9 @@ export function debounce<T extends (...args: any[]) => any>(func: T, delay: numb
 
     timeoutId = setTimeout(() => {
       //@ts-ignore
-      func.apply(this , args)
+      func.apply(this, args)
     }, delay)
   }
 }
+
+export const noop = () => {}

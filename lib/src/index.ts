@@ -1,36 +1,26 @@
 import { Extension } from '@codemirror/state'
-import { PeerConfigOptions } from './config'
-import { CollabConfigOptions, peerCollab } from './peer-collab'
-import { PeerSelectionConfigOptions, PeerSelectionOptions, peerSelection, PeerSelectionEvents } from './peer-selection'
+import { PeerCollabOptions, peerCollab, PeerCollabConfigOptions } from './peer-collab'
+import { PeerSelectionOptions, peerSelection, PeerSelectionEvents, PeerSelectionConfigOptions } from './peer-selection'
 import { IPeerCollabConnection, IPeerConnection } from './types'
 
-type peerExtensionFunc = {
-  (connection: IPeerCollabConnection, collabOptions: CollabConfigOptions, selectionOptions: undefined): Extension
-  (
-    connection: IPeerCollabConnection,
-    collabOptions: CollabConfigOptions,
-    selectionOptions: PeerSelectionConfigOptions
-  ): Extension
-  (connection: IPeerConnection, collabOptions: CollabConfigOptions, selectionOptions: PeerSelectionOptions): Extension
-}
+type peerExtensionOptions =
+  | { connection: IPeerCollabConnection; clientID: string; collab: PeerCollabOptions; selection?: null }
+  | { connection: IPeerConnection; clientID: string; collab: PeerCollabOptions; selection: PeerSelectionOptions }
 
-const peerExtension: peerExtensionFunc = (connection, collabOptions, selectionOptions) => {
-  const { clientID } = collabOptions
+type peerExtensionFunc = (config: peerExtensionOptions) => Extension
 
+const peerExtension: peerExtensionFunc = ({ clientID, connection, collab, selection }) => {
   const extensions: Extension[] = []
 
-  extensions.push(peerCollab(connection, collabOptions))
+  extensions.push(peerCollab(Object.assign({ connection, clientID }, collab)))
 
-  if (selectionOptions) {
-    const selectionOpts = selectionOptions as PeerSelectionConfigOptions
-    const pConnection = connection as IPeerConnection
-
+  if (selection) {
     extensions.push(
       peerSelection({
+        ...selection,
         clientID,
-        ...selectionOptions,
-        onBroadcastLocalSelection: selectionOpts.onBroadcastLocalSelection || pConnection.onBroadcastLocalSelection,
-        onReceiveSelection: selectionOpts.onReceiveSelection || pConnection.onReceiveSelection,
+        onBroadcastLocalSelection: connection.onBroadcastLocalSelection,
+        onReceiveSelection: connection.onReceiveSelection,
       })
     )
   }
@@ -40,5 +30,16 @@ const peerExtension: peerExtensionFunc = (connection, collabOptions, selectionOp
 
 //exports
 export default peerExtension
-export { peerCollab, peerExtension, peerSelection, PeerSelectionEvents, PeerConfigOptions }
+export { peerCollab, peerExtension, peerSelection }
+
+//types
 export * from './types'
+export {
+  IPeerCollabConnection,
+  IPeerConnection,
+  PeerCollabOptions,
+  PeerCollabConfigOptions,
+  PeerSelectionEvents,
+  PeerSelectionOptions,
+  PeerSelectionConfigOptions,
+}

@@ -4,11 +4,7 @@ import { EditorView, ViewPlugin, ViewUpdate } from '@codemirror/view'
 import { debounce } from './utils'
 import { IPeerCollabConnection } from './types'
 
-export type CollabConfigOptions = {
-  /**
-   * A unique identifier for the client.
-   */
-  clientID: string
+export type PeerCollabOptions = {
   /**
    * The starting document version. Defaults to 0.
    */
@@ -21,17 +17,17 @@ export type CollabConfigOptions = {
   pushUpdateDelayMs?: number
 }
 
-type ConfigOptionsWithConnection = { connection: IPeerCollabConnection } & CollabConfigOptions
+export type PeerCollabConfigOptions = { connection: IPeerCollabConnection; clientID: string } & PeerCollabOptions
 
 // fully populated configuration, ensures all optional fields have default values.
-export type PeerCollabConfig = { connection: IPeerCollabConnection } & Required<CollabConfigOptions>
+type PeerCollabConfigFull = Required<PeerCollabConfigOptions>
 
 /**
  *  Configuration Facet, combine provided options with default values.
  */
-export const peerConfig = Facet.define<ConfigOptionsWithConnection, PeerCollabConfig>({
+export const peerConfig = Facet.define<PeerCollabConfigOptions, PeerCollabConfigFull>({
   combine(value) {
-    const combined = combineConfig<PeerCollabConfig>(value, { docStartVersion: 0, pushUpdateDelayMs: 100 })
+    const combined = combineConfig<PeerCollabConfigFull>(value, { docStartVersion: 0, pushUpdateDelayMs: 100 })
     return combined
   },
 })
@@ -67,7 +63,7 @@ enum CollabState {
 class PeerExtensionPlugin {
   private cbState: CollabState = CollabState.Idle
   private pendingRecieved = []
-  private conf: PeerCollabConfig
+  private conf: PeerCollabConfigFull
   private connection: IPeerCollabConnection
 
   constructor(private view: EditorView) {
@@ -169,12 +165,9 @@ class PeerExtensionPlugin {
   }
 }
 
-export function peerCollab(connection: IPeerCollabConnection, config: CollabConfigOptions) {
+export function peerCollab(config: PeerCollabConfigOptions) {
   return [
-    peerConfig.of({
-      connection,
-      ...config,
-    }),
+    peerConfig.of(config),
     collab({ startVersion: config.docStartVersion, clientID: config.clientID }),
     ViewPlugin.fromClass(PeerExtensionPlugin),
   ]

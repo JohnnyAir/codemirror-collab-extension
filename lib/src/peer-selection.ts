@@ -8,6 +8,7 @@ import { PeerSelectionRange, PeerUser } from './types'
 import { PeerSelectionState, peerSelectionField, peerSelectionsAnnotation } from './peer-selection-state'
 import { Facet, combineConfig } from '@codemirror/state'
 import { PeerEditorSelectionJSON } from './types'
+import { noop } from './utils'
 
 export interface PeerSelectionEvents {
   /**
@@ -36,14 +37,17 @@ export interface PeerSelectionOptions {
   removeOnEditorFocusOut?: boolean
 }
 
-export type PeerSelectionConfigOptions = PeerSelectionOptions & PeerSelectionEvents
-export type PeerSelectionFullConfig = Required<PeerSelectionConfigOptions> & { clientID: string }
+export type PeerSelectionConfigOptions = PeerSelectionOptions & PeerSelectionEvents & { clientID: string }
+
+type PeerSelectionFullConfig = Required<PeerSelectionConfigOptions>
 
 const peerSelectionConfig = Facet.define<PeerSelectionConfigOptions, PeerSelectionFullConfig>({
   combine(value) {
     const combined = combineConfig<PeerSelectionFullConfig>(value, {
       tooltipHideDelayMs: 1000,
       removeOnEditorFocusOut: false,
+      onBroadcastLocalSelection: noop,
+      onReceiveSelection: noop,
     })
     return combined
   },
@@ -156,7 +160,7 @@ class PeerSelectionPlugin {
   }
 }
 
-export const peerSelection = (config: PeerSelectionConfigOptions & { clientID: string }): Extension => [
+export const peerSelection = (config: PeerSelectionConfigOptions): Extension => [
   peerSelectionConfig.of(config),
   peerSelectionField,
   ViewPlugin.fromClass(PeerSelectionPlugin, {

@@ -52,8 +52,7 @@ const createEditorState = async () => {
 
   const color = tinycolor.random()
 
-  const config = {
-    clientID,
+  const collab = {
     docStartVersion: version,
     pushUpdateDelayMs: 100,
   }
@@ -74,7 +73,7 @@ const createEditorState = async () => {
       disableSpellCheck,
       nightOwl,
       javascript({ typescript: true }),
-      peerExtension(connection, config, selection),
+      peerExtension({ connection, clientID, collab, selection }),
     ],
   })
 }
