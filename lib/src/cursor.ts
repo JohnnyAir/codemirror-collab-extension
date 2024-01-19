@@ -27,7 +27,7 @@ export class PeerCursorWidget extends WidgetType {
     const tooltip = dom.querySelector('.cm-peer-user-cursor-info')
     if (tooltip) {
       tooltip.classList.add('show-info')
-      this.hideCursorTooltip(tooltip)
+      this.hideCursorTooltip()
     }
     return !!tooltip
   }
@@ -41,19 +41,20 @@ export class PeerCursorWidget extends WidgetType {
     cLine.style.borderColor = this.user.bgColor
     cLine.style.backgroundColor = this.user.bgColor
     let info = document.createElement('div')
+    info.dataset.id = this.id
     info.className = 'show-info cm-peer-user-cursor-info'
     info.style.backgroundColor = this.user.bgColor
     info.style.color = this.user.color
     info.textContent = this.user.name
     wrap.append(cLine, info)
-    this.hideCursorTooltip(info)
+    this.hideCursorTooltip()
     return wrap
   }
 
-  hideCursorTooltip(tooltipNode: Element) {
+  hideCursorTooltip() {
     clearTimeout(cursorsTimeoutIds[this.id])
     cursorsTimeoutIds[this.id] = setTimeout(() => {
-      tooltipNode.classList.remove('show-info')
+      document.querySelectorAll(`.show-info.cm-peer-user-cursor-info[data-id=${this.id}]`).forEach((e) => e.classList.remove('show-info'))
     }, this.tooltipHideDelay)
   }
 }
